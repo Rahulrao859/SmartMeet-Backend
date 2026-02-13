@@ -44,12 +44,16 @@ class MeetingController {
                 emailResults.push(result);
                 if (result.success) successfulEmails++;
 
-                // Log email
+                // Log email with all required fields for frontend
+                const timestamp = new Date();
                 emailLogs.push({
                     id: Date.now() + Math.random().toString(),
-                    email,
-                    status: result.status,
-                    timestamp: new Date(),
+                    recipient: email,
+                    subject: `Meeting Invitation: ${meetingDetails.title || 'Scheduled Meeting'}`,
+                    status: result.status || 'Sent',
+                    time: timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                    date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                    timestamp: timestamp,
                     meetingId: meetingDetails.id
                 });
             }
@@ -86,7 +90,7 @@ class MeetingController {
         const totalEmailsSent = emailLogs.filter(l => l.status === 'Sent').length;
         const totalEmails = emailLogs.length;
         const successRate = totalEmails > 0 ? Math.round((totalEmailsSent / totalEmails) * 100) : 0;
-        const activeParticipants = new Set(emailLogs.map(l => l.email)).size;
+        const activeParticipants = new Set(emailLogs.map(l => l.recipient)).size;
 
         res.json({
             stats: {
