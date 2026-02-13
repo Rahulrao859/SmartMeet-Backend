@@ -97,26 +97,55 @@ class GeminiService {
 
         try {
             const currentDate = new Date().toISOString().split('T')[0];
-            const currentTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+            const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+            const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+            const currentFullDateTime = new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' });
 
             const prompt = `You are a meeting scheduling assistant. Extract meeting details from the following request and respond with ONLY valid JSON (no markdown, no explanations, no code blocks).
 
-User Request: "${query}"
+CURRENT DATE/TIME CONTEXT (for calculating relative dates/times):
+- Current Date: ${currentDate} (${currentDay})
+- Current Time: ${currentTime}
+- Full Date/Time: ${currentFullDateTime}
+- Time Zone: IST (UTC+5:30)
 
-Current Date: ${currentDate}
-Current Time: ${currentTime}
+CRITICAL: Handle relative dates and times by calculating from current date/time:
+Examples:
+- "in 2 hours" → Add 2 hours to current time (${currentTime})
+- "in 30 minutes" → Add 30 minutes to current time
+- "tomorrow" → ${currentDate} + 1 day
+- "day after tomorrow" → ${currentDate} + 2 days
+- "in 2 days" or "2 days from now" → ${currentDate} + 2 days
+- "next Monday/Tuesday/etc" → Calculate next occurrence from ${currentDate}
+- "next week" → ${currentDate} + 7 days
+- "this Friday" → Calculate from current week
+
+User Request: "${query}"
 
 Extract these fields:
 1. "title": A concise meeting title (if not specified, create one based on the context)
-2. "date": Format as YYYY-MM-DD. If relative dates like "tomorrow", "next Monday", calculate from current date ${currentDate}
-3. "time": Format as HH:MM in 24-hour format. If AM/PM is mentioned, convert it.
+2. "date": Format as YYYY-MM-DD. Calculate if relative (e.g., "tomorrow", "in 2 days")
+3. "time": Format as HH:MM in 24-hour format. Calculate if relative (e.g., "in 2 hours"). Convert AM/PM to 24-hour.
 4. "duration": Format as "X minutes" or "X hour(s)" (default: "30 minutes" if not specified)
 5. "participants": Array of participant names mentioned (empty array [] if none)
-6. "platform": Must be one of: "Zoom", "Google Meet", or "Online" (detect from keywords like zoom, meet, google meet, or default to "Online")
+6. "platform": Detect from keywords:
+   - "zoom", "on zoom", "via zoom" → "Zoom"
+   - "google meet", "meet", "on meet" → "Google Meet"
+   - "teams", "microsoft teams", "ms teams" → "Microsoft Teams"
+   - If none mentioned → "Online"
 7. "platform_link": Leave empty string "", will be generated separately
 
-Example Input: "Team standup tomorrow at 10 AM on Zoom for 30 minutes"
-Example Output: {"title":"Team standup","date":"2026-02-03","time":"10:00","duration":"30 minutes","participants":[],"platform":"Zoom","platform_link":""}
+Example 1:
+Input: "Team standup tomorrow at 10 AM on Zoom for 30 minutes"
+Output: {"title":"Team standup","date":"<tomorrow's date in YYYY-MM-DD>","time":"10:00","duration":"30 minutes","participants":[],"platform":"Zoom","platform_link":""}
+
+Example 2:
+Input: "Client call in 2 hours on Google Meet"
+Output: {"title":"Client call","date":"${currentDate}","time":"<current time + 2 hours in HH:MM>","duration":"30 minutes","participants":[],"platform":"Google Meet","platform_link":""}
+
+Example 3:
+Input: "Project review 2 days from now at 3 PM on Teams for 1 hour"
+Output: {"title":"Project review","date":"<current date + 2 days in YYYY-MM-DD>","time":"15:00","duration":"1 hour","participants":[],"platform":"Microsoft Teams","platform_link":""}
 
 Now extract from: "${query}"
 

@@ -13,10 +13,19 @@ class EmailService {
 
     async sendMeetingEmail(toEmail, meetingDetails) {
         try {
-            const platformLink = meetingDetails.platform_link || '#';
-            const linkHtml = meetingDetails.platform_link
-                ? `<br><a href="${platformLink}" target="_blank" style="color: #1a73e8;">Join Meeting Link</a>`
-                : '';
+            // Build meeting link section if available
+            let meetingLinkHtml = '';
+            if (meetingDetails.meetingLink) {
+                meetingLinkHtml = `
+                    <div style="background-color: #f0f4ff; border-left: 4px solid #8b5cf6; padding: 15px; margin: 15px 0; border-radius: 4px;">
+                        <h3 style="color: #8b5cf6; margin: 0 0 10px 0;">🔗 Join Meeting</h3>
+                        <p style="margin: 5px 0;"><strong>Platform:</strong> ${meetingDetails.platform}</p>
+                        <p style="margin: 5px 0;"><a href="${meetingDetails.meetingLink}" style="color: #3b82f6; text-decoration: none; font-weight: bold;">${meetingDetails.meetingLink}</a></p>
+                        ${meetingDetails.meetingId ? `<p style="margin: 5px 0;"><strong>Meeting ID:</strong> ${meetingDetails.meetingId}</p>` : ''}
+                        ${meetingDetails.meetingPassword ? `<p style="margin: 5px 0;"><strong>Password:</strong> ${meetingDetails.meetingPassword}</p>` : ''}
+                    </div>
+                `;
+            }
 
             const mailOptions = {
                 from: process.env.EMAIL_USER,
@@ -24,16 +33,27 @@ class EmailService {
                 subject: `Meeting Scheduled: ${meetingDetails.title}`,
                 html: `
                     <html>
-                      <body>
-                        <p>Hello,</p>
-                        <p>Your meeting "<strong>${meetingDetails.title}</strong>" has been scheduled.</p>
-                        <p>
-                          <strong>Date:</strong> ${meetingDetails.date}<br>
-                          <strong>Time:</strong> ${meetingDetails.time}<br>
-                          <strong>Duration:</strong> ${meetingDetails.duration}<br>
-                          <strong>Platform:</strong> ${meetingDetails.platform} ${linkHtml}
-                        </p>
-                        <p>Regards,<br>Intelligent Meeting Scheduler</p>
+                      <body style="font-family: Arial sans-serif; max-width: 600px; margin: 0 auto;">
+                        <div style="background: linear-gradient(135deg, #8b5cf6 0%, #3b82f6 100%); padding: 30px; text-align: center;">
+                            <h1 style="color: white; margin: 0;">📅 Meeting Invitation</h1>
+                        </div>
+                        <div style="padding: 30px; background-color: #f8fafc;">
+                            <p>Hello,</p>
+                            <p>Your meeting "<strong>${meetingDetails.title}</strong>" has been scheduled.</p>
+                            
+                            <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                                <p><strong>📅 Date:</strong> ${meetingDetails.date}</p>
+                                <p><strong>🕐 Time:</strong> ${meetingDetails.time}</p>
+                                <p><strong>⏱️ Duration:</strong> ${meetingDetails.duration}</p>
+                                ${!meetingDetails.meetingLink ? `<p><strong>💻 Platform:</strong> ${meetingDetails.platform}</p>` : ''}
+                            </div>
+                            
+                            ${meetingLinkHtml}
+                            
+                            <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
+                                Regards,<br>SmartMeet - AI-Powered Meeting Scheduler
+                            </p>
+                        </div>
                       </body>
                     </html>
                 `,
@@ -46,10 +66,12 @@ class EmailService {
                     Time: ${meetingDetails.time}
                     Duration: ${meetingDetails.duration}
                     Platform: ${meetingDetails.platform}
-                    ${meetingDetails.platform_link || ''}
+                    ${meetingDetails.meetingLink ? `\nJoin Link: ${meetingDetails.meetingLink}` : ''}
+                    ${meetingDetails.meetingId ? `Meeting ID: ${meetingDetails.meetingId}` : ''}
+                    ${meetingDetails.meetingPassword ? `Password: ${meetingDetails.meetingPassword}` : ''}
 
                     Regards,
-                    Intelligent Meeting Scheduler
+                    SmartMeet - AI-Powered Meeting Scheduler
                 `
             };
 

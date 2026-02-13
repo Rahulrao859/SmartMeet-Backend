@@ -1,5 +1,6 @@
 const geminiService = require('../services/geminiService');
 const emailService = require('../services/emailService');
+const zoomService = require('../services/zoomService');
 
 // In-memory storage
 let meetings = [];
@@ -25,13 +26,37 @@ class MeetingController {
             meetingDetails.id = Date.now().toString();
             meetingDetails.status = 'confirmed';
 
+            // 3. Generate meeting link based on platform
+            if (meetingDetails.platform) {
+                const platform = meetingDetails.platform.toLowerCase();
+
+                if (platform.includes('zoom')) {
+                    const zoomLink = zoomService.createMeetingLink(meetingDetails);
+                    meetingDetails.meetingLink = zoomLink.joinUrl;
+                    meetingDetails.meetingId = zoomLink.formattedMeetingId;
+                    meetingDetails.meetingPassword = zoomLink.password;
+                    meetingDetails.hostLink = zoomLink.hostUrl;
+                } else if (platform.includes('google') || platform.includes('meet')) {
+                    const meetLink = zoomService.createGoogleMeetLink();
+                    meetingDetails.meetingLink = meetLink.joinUrl;
+                    meetingDetails.meetingId = meetLink.meetingId;
+                    meetingDetails.platform = 'Google Meet';
+                } else if (platform.includes('teams') || platform.includes('microsoft')) {
+                    const teamsLink = zoomService.createTeamsLink();
+                    meetingDetails.meetingLink = teamsLink.joinUrl;
+                    meetingDetails.meetingId = teamsLink.meetingId;
+                    meetingDetails.platform = 'Microsoft Teams';
+                }
+            }
+
             console.log(`✅ Meeting details prepared:`, {
                 id: meetingDetails.id,
                 title: meetingDetails.title,
                 date: meetingDetails.date,
                 time: meetingDetails.time,
                 duration: meetingDetails.duration,
-                platform: meetingDetails.platform
+                platform: meetingDetails.platform,
+                meetingLink: meetingDetails.meetingLink || 'Not generated'
             });
 
             // 2. Process emails
@@ -64,7 +89,26 @@ class MeetingController {
 
             console.log(`✅ Meeting saved successfully. Total meetings: ${meetings.length}`);
 
-            // 4. Return response
+            // 4. Create Google Calendar event (if connected)
+            try {
+                const googleCalendarService = require('../services/googleCalendarService');
+                if (googleCalendarService.isConnected()) {
+                    console.log('📅 Creating Google Calendar event...');
+                    const calendarEvent = await googleCalendarService.createCalendarEvent(meetingDetails);
+                    if (calendarEvent) {
+                        meetingDetails.calendarEventId = calendarEvent.eventId;
+                        meetingDetails.calendarEventLink = calendarEvent.eventLink;
+                        console.log(`✅ Calendar event created: ${calendarEvent.eventLink}`);
+                    }
+                } else {
+                    console.log('ℹ️ Google Calendar not connected, skipping event creation');
+                }
+            } catch (calendarError) {
+                console.error('⚠️ Failed to create calendar event (non-critical):', calendarError.message);
+                // Don't fail the entire request if calendar creation fails
+            }
+
+            // 5. Return response
             res.json({
                 meeting: meetingDetails,
                 successful_emails: successfulEmails,
