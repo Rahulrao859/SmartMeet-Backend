@@ -20,6 +20,7 @@ connectDB();
 const apiRoutes = require('./routes/apiRoutes');
 const authRoutes = require('./routes/authRoutes');
 const calendarRoutes = require('./routes/calendarRoutes');
+const whatsappRoutes = require('./routes/whatsappRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -32,6 +33,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api', apiRoutes);
 app.use('/api/calendar', calendarRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

@@ -1,6 +1,7 @@
 const geminiService = require('../services/geminiService');
 const emailService = require('../services/emailService');
 const zoomService = require('../services/zoomService');
+const whatsappService = require('../services/whatsappService');
 
 // In-memory storage
 let meetings = [];
@@ -89,7 +90,19 @@ class MeetingController {
 
             console.log(`✅ Meeting saved successfully. Total meetings: ${meetings.length}`);
 
-            // 4. Create Google Calendar event (if connected)
+            // 4. Send WhatsApp notification (non-blocking)
+            try {
+                const waResult = await whatsappService.sendMeetingNotification(meetingDetails);
+                if (waResult.success) {
+                    console.log(`📱 WhatsApp notification sent: ${waResult.sid}`);
+                } else {
+                    console.warn('📱 WhatsApp notification skipped:', waResult.reason || waResult.error);
+                }
+            } catch (waError) {
+                console.error('📱 WhatsApp notification error (non-critical):', waError.message);
+            }
+
+            // 5. Create Google Calendar event (if connected)
             try {
                 const googleCalendarService = require('../services/googleCalendarService');
                 if (googleCalendarService.isConnected()) {
@@ -108,7 +121,7 @@ class MeetingController {
                 // Don't fail the entire request if calendar creation fails
             }
 
-            // 5. Return response
+            // 6. Return response
             res.json({
                 meeting: meetingDetails,
                 successful_emails: successfulEmails,
