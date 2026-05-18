@@ -1,37 +1,37 @@
+const { validationResult } = require('express-validator');
+const Meeting = require('../models/Meeting');
+const EmailLog = require('../models/EmailLog');
 const geminiService = require('../services/geminiService');
 const emailService = require('../services/emailService');
 const zoomService = require('../services/zoomService');
 const whatsappService = require('../services/whatsappService');
 
-// In-memory storage
-let meetings = [];
-let emailLogs = [];
-
 class MeetingController {
+
     async scheduleMeeting(req, res) {
+        // 1. Check validation errors from express-validator
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ error: 'Validation failed', details: errors.array() });
+        }
+
         try {
             const { query, emails } = req.body;
+            const userId = req.user._id;
 
-            console.log(`📅 Scheduling meeting request: "${query}"`);
+            console.log(`📅 Scheduling meeting: "${query}"`);
             console.log(`📧 Emails: ${emails}`);
 
-            // 1. Parse meeting details using Gemini
+            // 2. Parse meeting details using Gemini AI
             const meetingDetails = await geminiService.parseMeetingDetails(query);
 
-            // 2. Validate essential fields
             if (!meetingDetails.date || !meetingDetails.time) {
-                console.warn("⚠️ Missing essential meeting details (date or time)");
+                console.warn('⚠️ Missing date or time from AI response');
             }
-
-            // Generate a simple ID and attach user
-            meetingDetails.id = Date.now().toString();
-            meetingDetails.status = 'confirmed';
-            meetingDetails.userId = req.user?.id || 'anonymous';  // Add user ID for data isolation
 
             // 3. Generate meeting link based on platform
             if (meetingDetails.platform) {
                 const platform = meetingDetails.platform.toLowerCase();
-
                 if (platform.includes('zoom')) {
                     const zoomLink = zoomService.createMeetingLink(meetingDetails);
                     meetingDetails.meetingLink = zoomLink.joinUrl;
@@ -51,126 +51,190 @@ class MeetingController {
                 }
             }
 
-            console.log(`✅ Meeting details prepared:`, {
-                id: meetingDetails.id,
-                title: meetingDetails.title,
+            // 4. Process participants list
+            const emailList = emails.split(',').map(e => e.trim()).filter(e => e);
+
+            // 5. Save meeting to MongoDB
+            const meeting = await Meeting.create({
+                userId,
+                title: meetingDetails.title || 'Scheduled Meeting',
                 date: meetingDetails.date,
                 time: meetingDetails.time,
-                duration: meetingDetails.duration,
-                platform: meetingDetails.platform,
-                meetingLink: meetingDetails.meetingLink || 'Not generated'
+                duration: meetingDetails.duration || '1 hour',
+                platform: meetingDetails.platform || 'Google Meet',
+                meetingLink: meetingDetails.meetingLink || '',
+                meetingId: meetingDetails.meetingId || '',
+                meetingPassword: meetingDetails.meetingPassword || '',
+                hostLink: meetingDetails.hostLink || '',
+                participants: emailList,
+                timezone: meetingDetails.timezone || 'UTC',
+                status: 'confirmed',
             });
 
-            // 2. Process emails and WhatsApp notifications together
-            const emailList = emails.split(',').map(e => e.trim()).filter(e => e);
+            console.log(`✅ Meeting saved to MongoDB: ${meeting._id}`);
+
+            // 6. Send emails and log results
             const emailResults = [];
             let successfulEmails = 0;
 
             for (const email of emailList) {
-                // Send email
-                const result = await emailService.sendMeetingEmail(email, meetingDetails);
+                // Attach MongoDB ID to meeting details for email template
+                const detailsForEmail = { ...meetingDetails, id: meeting._id.toString() };
+                const result = await emailService.sendMeetingEmail(email, detailsForEmail);
                 emailResults.push(result);
                 if (result.success) successfulEmails++;
 
-                // Log email with all required fields for frontend
-                const timestamp = new Date();
-                emailLogs.push({
-                    id: Date.now() + Math.random().toString(),
+                // Save email log to MongoDB
+                await EmailLog.create({
+                    userId,
+                    meetingId: meeting._id,
                     recipient: email,
-                    subject: `Meeting Invitation: ${meetingDetails.title || 'Scheduled Meeting'}`,
-                    status: result.status || 'Sent',
-                    time: timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-                    date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-                    timestamp: timestamp,
-                    meetingId: meetingDetails.id,
-                    userId: req.user?.id || 'anonymous'  // Add user ID for data isolation
+                    subject: `Meeting Invitation: ${meeting.title}`,
+                    status: result.success ? 'Sent' : 'Failed',
+                    errorMessage: result.success ? '' : (result.error || ''),
                 });
 
-                // Send WhatsApp notification along with email (non-blocking)
+                // Non-blocking WhatsApp notification
                 try {
                     const waResult = await whatsappService.sendMeetingNotification(meetingDetails);
                     if (waResult.success) {
-                        console.log(`📱 WhatsApp notification sent for ${email}: ${waResult.sid}`);
-                    } else {
-                        console.warn(`📱 WhatsApp notification skipped for ${email}:`, waResult.reason || waResult.error);
+                        console.log(`📱 WhatsApp sent for ${email}`);
                     }
                 } catch (waError) {
-                    console.error(`📱 WhatsApp notification error for ${email} (non-critical):`, waError.message);
+                    console.warn(`📱 WhatsApp skipped (non-critical): ${waError.message}`);
                 }
             }
 
-            // 3. Save meeting
-            meetingDetails.participants = emailList;
-            meetings.push(meetingDetails);
-
-            console.log(`✅ Meeting saved successfully. Total meetings: ${meetings.length}`);
-
-            // 5. Create Google Calendar event (if connected)
+            // 7. Try creating Google Calendar event (non-blocking)
             try {
                 const googleCalendarService = require('../services/googleCalendarService');
                 if (googleCalendarService.isConnected()) {
-                    console.log('📅 Creating Google Calendar event...');
                     const calendarEvent = await googleCalendarService.createCalendarEvent(meetingDetails);
                     if (calendarEvent) {
-                        meetingDetails.calendarEventId = calendarEvent.eventId;
-                        meetingDetails.calendarEventLink = calendarEvent.eventLink;
-                        console.log(`✅ Calendar event created: ${calendarEvent.eventLink}`);
+                        await Meeting.findByIdAndUpdate(meeting._id, {
+                            calendarEventId: calendarEvent.eventId,
+                            calendarEventLink: calendarEvent.eventLink,
+                        });
+                        console.log(`✅ Google Calendar event created: ${calendarEvent.eventLink}`);
                     }
-                } else {
-                    console.log('ℹ️ Google Calendar not connected, skipping event creation');
                 }
             } catch (calendarError) {
-                console.error('⚠️ Failed to create calendar event (non-critical):', calendarError.message);
-                // Don't fail the entire request if calendar creation fails
+                console.warn('⚠️ Calendar event skipped (non-critical):', calendarError.message);
             }
 
-            // 6. Return response
-            res.json({
-                meeting: meetingDetails,
+            // 8. Return response (format matches existing frontend expectations)
+            return res.status(201).json({
+                meeting: {
+                    id: meeting._id.toString(),
+                    title: meeting.title,
+                    date: meeting.date,
+                    time: meeting.time,
+                    duration: meeting.duration,
+                    platform: meeting.platform,
+                    meetingLink: meeting.meetingLink,
+                    participants: meeting.participants,
+                    timezone: meeting.timezone,
+                    status: meeting.status,
+                },
                 successful_emails: successfulEmails,
                 total_emails: emailList.length,
-                email_results: emailResults
+                email_results: emailResults,
             });
 
         } catch (error) {
             console.error('❌ Error scheduling meeting:', error);
-            res.status(500).json({ error: 'Failed to schedule meeting', details: error.message });
+            return res.status(500).json({ error: 'Failed to schedule meeting', details: error.message });
         }
     }
 
-    getMeetings(req, res) {
-        // Filter meetings by user ID
-        const userId = req.user?.id || 'anonymous';
-        const userMeetings = meetings.filter(m => m.userId === userId);
-        res.json({ meetings: userMeetings });
+    async getMeetings(req, res) {
+        try {
+            const meetings = await Meeting.find({ userId: req.user._id })
+                .sort({ createdAt: -1 })
+                .lean();
+
+            // Format for frontend compatibility
+            const formatted = meetings.map(m => ({
+                id: m._id.toString(),
+                title: m.title,
+                date: m.date,
+                time: m.time,
+                duration: m.duration,
+                platform: m.platform,
+                meetingLink: m.meetingLink,
+                participants: m.participants,
+                timezone: m.timezone,
+                status: m.status,
+                createdAt: m.createdAt,
+            }));
+
+            return res.json({ meetings: formatted });
+        } catch (error) {
+            console.error('❌ Error fetching meetings:', error);
+            return res.status(500).json({ error: 'Failed to fetch meetings' });
+        }
     }
 
-    getEmailLogs(req, res) {
-        // Filter email logs by user ID
-        const userId = req.user?.id || 'anonymous';
-        const userEmails = emailLogs.filter(l => l.userId === userId);
-        res.json({ logs: userEmails });
+    async getEmailLogs(req, res) {
+        try {
+            const logs = await EmailLog.find({ userId: req.user._id })
+                .sort({ createdAt: -1 })
+                .lean();
+
+            // Format for frontend compatibility
+            const formatted = logs.map(l => ({
+                id: l._id.toString(),
+                recipient: l.recipient,
+                subject: l.subject,
+                status: l.status,
+                time: new Date(l.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                date: new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+                timestamp: l.createdAt,
+                meetingId: l.meetingId?.toString() || '',
+            }));
+
+            return res.json({ logs: formatted });
+        } catch (error) {
+            console.error('❌ Error fetching email logs:', error);
+            return res.status(500).json({ error: 'Failed to fetch email logs' });
+        }
     }
 
-    getStats(req, res) {
-        // Filter stats by user ID
-        const userId = req.user?.id || 'anonymous';
-        const userMeetings = meetings.filter(m => m.userId === userId);
-        const userEmails = emailLogs.filter(l => l.userId === userId);
+    async getStats(req, res) {
+        try {
+            const userId = req.user._id;
 
-        const totalEmailsSent = userEmails.filter(l => l.status === 'Sent').length;
-        const totalEmails = userEmails.length;
-        const successRate = totalEmails > 0 ? Math.round((totalEmailsSent / totalEmails) * 100) : 0;
-        const activeParticipants = new Set(userEmails.map(l => l.recipient)).size;
+            // Run both queries in parallel for efficiency
+            const [totalMeetings, emailStats] = await Promise.all([
+                Meeting.countDocuments({ userId }),
+                EmailLog.aggregate([
+                    { $match: { userId } },
+                    {
+                        $group: {
+                            _id: null,
+                            total: { $sum: 1 },
+                            sent: { $sum: { $cond: [{ $eq: ['$status', 'Sent'] }, 1, 0] } },
+                            uniqueRecipients: { $addToSet: '$recipient' },
+                        },
+                    },
+                ]),
+            ]);
 
-        res.json({
-            stats: {
-                meetings_scheduled: userMeetings.length,
-                emails_sent: totalEmailsSent,
-                success_rate: successRate,
-                active_participants: activeParticipants
-            }
-        });
+            const stats = emailStats[0] || { total: 0, sent: 0, uniqueRecipients: [] };
+            const successRate = stats.total > 0 ? Math.round((stats.sent / stats.total) * 100) : 0;
+
+            return res.json({
+                stats: {
+                    meetings_scheduled: totalMeetings,
+                    emails_sent: stats.sent,
+                    success_rate: successRate,
+                    active_participants: stats.uniqueRecipients.length,
+                },
+            });
+        } catch (error) {
+            console.error('❌ Error fetching stats:', error);
+            return res.status(500).json({ error: 'Failed to fetch stats' });
+        }
     }
 
     healthCheck(req, res) {
