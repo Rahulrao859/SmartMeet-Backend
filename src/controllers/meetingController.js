@@ -23,9 +23,10 @@ class MeetingController {
                 console.warn("⚠️ Missing essential meeting details (date or time)");
             }
 
-            // Generate a simple ID
+            // Generate a simple ID and attach user
             meetingDetails.id = Date.now().toString();
             meetingDetails.status = 'confirmed';
+            meetingDetails.userId = req.user?.id || 'anonymous';  // Add user ID for data isolation
 
             // 3. Generate meeting link based on platform
             if (meetingDetails.platform) {
@@ -60,12 +61,13 @@ class MeetingController {
                 meetingLink: meetingDetails.meetingLink || 'Not generated'
             });
 
-            // 2. Process emails
+            // 2. Process emails and WhatsApp notifications together
             const emailList = emails.split(',').map(e => e.trim()).filter(e => e);
             const emailResults = [];
             let successfulEmails = 0;
 
             for (const email of emailList) {
+                // Send email
                 const result = await emailService.sendMeetingEmail(email, meetingDetails);
                 emailResults.push(result);
                 if (result.success) successfulEmails++;
@@ -80,8 +82,21 @@ class MeetingController {
                     time: timestamp.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
                     date: timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
                     timestamp: timestamp,
-                    meetingId: meetingDetails.id
+                    meetingId: meetingDetails.id,
+                    userId: req.user?.id || 'anonymous'  // Add user ID for data isolation
                 });
+
+                // Send WhatsApp notification along with email (non-blocking)
+                try {
+                    const waResult = await whatsappService.sendMeetingNotification(meetingDetails);
+                    if (waResult.success) {
+                        console.log(`📱 WhatsApp notification sent for ${email}: ${waResult.sid}`);
+                    } else {
+                        console.warn(`📱 WhatsApp notification skipped for ${email}:`, waResult.reason || waResult.error);
+                    }
+                } catch (waError) {
+                    console.error(`📱 WhatsApp notification error for ${email} (non-critical):`, waError.message);
+                }
             }
 
             // 3. Save meeting
@@ -89,18 +104,6 @@ class MeetingController {
             meetings.push(meetingDetails);
 
             console.log(`✅ Meeting saved successfully. Total meetings: ${meetings.length}`);
-
-            // 4. Send WhatsApp notification (non-blocking)
-            try {
-                const waResult = await whatsappService.sendMeetingNotification(meetingDetails);
-                if (waResult.success) {
-                    console.log(`📱 WhatsApp notification sent: ${waResult.sid}`);
-                } else {
-                    console.warn('📱 WhatsApp notification skipped:', waResult.reason || waResult.error);
-                }
-            } catch (waError) {
-                console.error('📱 WhatsApp notification error (non-critical):', waError.message);
-            }
 
             // 5. Create Google Calendar event (if connected)
             try {
@@ -136,22 +139,33 @@ class MeetingController {
     }
 
     getMeetings(req, res) {
-        res.json({ meetings });
+        // Filter meetings by user ID
+        const userId = req.user?.id || 'anonymous';
+        const userMeetings = meetings.filter(m => m.userId === userId);
+        res.json({ meetings: userMeetings });
     }
 
     getEmailLogs(req, res) {
-        res.json({ logs: emailLogs });
+        // Filter email logs by user ID
+        const userId = req.user?.id || 'anonymous';
+        const userEmails = emailLogs.filter(l => l.userId === userId);
+        res.json({ logs: userEmails });
     }
 
     getStats(req, res) {
-        const totalEmailsSent = emailLogs.filter(l => l.status === 'Sent').length;
-        const totalEmails = emailLogs.length;
+        // Filter stats by user ID
+        const userId = req.user?.id || 'anonymous';
+        const userMeetings = meetings.filter(m => m.userId === userId);
+        const userEmails = emailLogs.filter(l => l.userId === userId);
+
+        const totalEmailsSent = userEmails.filter(l => l.status === 'Sent').length;
+        const totalEmails = userEmails.length;
         const successRate = totalEmails > 0 ? Math.round((totalEmailsSent / totalEmails) * 100) : 0;
-        const activeParticipants = new Set(emailLogs.map(l => l.recipient)).size;
+        const activeParticipants = new Set(userEmails.map(l => l.recipient)).size;
 
         res.json({
             stats: {
-                meetings_scheduled: meetings.length,
+                meetings_scheduled: userMeetings.length,
                 emails_sent: totalEmailsSent,
                 success_rate: successRate,
                 active_participants: activeParticipants
