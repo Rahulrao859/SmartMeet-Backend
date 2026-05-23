@@ -45,7 +45,10 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
-        cb(new Error(`CORS: origin ${origin} not allowed`));
+        const corsError = new Error(`CORS: origin ${origin} not allowed`);
+        corsError.statusCode = 403;
+        corsError.isOperational = true;
+        cb(corsError);
     },
     credentials: true,   // required for httpOnly cookie (refresh token)
 }));

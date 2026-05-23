@@ -61,7 +61,7 @@ class MeetingController {
             // 2 — Create calendar event
             let calendarData = {};
             try {
-                calendarData = await calendarService.createEvent(meetingDetails) || {};
+                calendarData = await calendarService.createCalendarEvent(meetingDetails) || {};
             } catch (calErr) {
                 logger.warn('Calendar event creation failed (non-fatal)', { error: calErr.message });
             }

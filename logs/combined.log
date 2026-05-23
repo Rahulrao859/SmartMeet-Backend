@@ -1,3 +1,13 @@
 {"environment":"development","level":"info","message":"User logged in","service":"smartmeet-backend","timestamp":"2026-05-23T18:49:08.264Z","userId":"6a11ec96e0ebc37cf54fa7a2"}
 {"environment":"development","level":"info","message":"[SOCKET] Client connected: B0XuRQUU-67CyqRWAAAB (User: 6a11ec96e0ebc37cf54fa7a2)","service":"smartmeet-backend","timestamp":"2026-05-23T18:49:08.343Z"}
 {"environment":"development","level":"info","message":"[SOCKET] Client disconnected: B0XuRQUU-67CyqRWAAAB (User: 6a11ec96e0ebc37cf54fa7a2)","service":"smartmeet-backend","timestamp":"2026-05-23T18:50:12.983Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: Z8tBu7Lceuk-8XzRAAAB (User: 6a11ec96e0ebc37cf54fa7a2)","service":"smartmeet-backend","timestamp":"2026-05-23T19:01:50.519Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: LmJtkUViXZ0A2q1lAAAD (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:06.311Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: 0kUifXzAWe6zU9a_AAAF (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:06.444Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client disconnected: LmJtkUViXZ0A2q1lAAAD (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:16.933Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client disconnected: 0kUifXzAWe6zU9a_AAAF (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:16.937Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: T3sftg1QGKwWpWIXAAAH (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:26.937Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: 6ymIKXSiOWoKCpt-AAAJ (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:26.952Z"}
+{"environment":"development","level":"info","message":"User logged in","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:39.516Z","userId":"6a11ec96e0ebc37cf54fa7a2"}
+{"environment":"development","level":"info","message":"[SOCKET] Client disconnected: 6ymIKXSiOWoKCpt-AAAJ (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:03:15.689Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client disconnected: T3sftg1QGKwWpWIXAAAH (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:03:17.981Z"}

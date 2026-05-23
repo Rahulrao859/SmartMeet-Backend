@@ -11,7 +11,7 @@ const express   = require('express');
 const { body }  = require('express-validator');
 const router    = express.Router();
 const auth      = require('../../middlewares/auth');
-const authController = require('../../controllers/authController');
+const authController = require('../../controllers/authcontroller');
 
 // ── Validation rule sets ──────────────────────────────────────
 const signupRules = [
