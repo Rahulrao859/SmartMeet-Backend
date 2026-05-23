@@ -1,0 +1,3 @@
+{"environment":"development","level":"info","message":"User logged in","service":"smartmeet-backend","timestamp":"2026-05-23T18:49:08.264Z","userId":"6a11ec96e0ebc37cf54fa7a2"}
+{"environment":"development","level":"info","message":"[SOCKET] Client connected: B0XuRQUU-67CyqRWAAAB (User: 6a11ec96e0ebc37cf54fa7a2)","service":"smartmeet-backend","timestamp":"2026-05-23T18:49:08.343Z"}
+{"environment":"development","level":"info","message":"[SOCKET] Client disconnected: B0XuRQUU-67CyqRWAAAB (User: 6a11ec96e0ebc37cf54fa7a2)","service":"smartmeet-backend","timestamp":"2026-05-23T18:50:12.983Z"}
