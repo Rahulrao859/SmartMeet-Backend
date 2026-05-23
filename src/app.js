@@ -10,19 +10,22 @@ const path         = require('path');
 dotenv.config({ path: path.join(__dirname, '../../.env') });
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
-// ── Startup validation (fail-fast on missing critical vars) ───
+// ── Startup validation ────────────────────────────────────────
+// NOTE: Never call process.exit() in a Vercel serverless function — it crashes
+// the function with FUNCTION_INVOCATION_FAILED. Log and continue instead.
 const REQUIRED_ENV = ['MONGODB_URI', 'JWT_SECRET', 'GEMINI_API_KEY'];
 const missing = REQUIRED_ENV.filter(k => !process.env[k]);
 if (missing.length > 0) {
     console.error(`[STARTUP] Missing required environment variables: ${missing.join(', ')}`);
-    console.error('[STARTUP] Check your .env file. Server cannot start safely.');
-    process.exit(1);
+    console.error('[STARTUP] Set these in your Vercel project → Settings → Environment Variables.');
 }
 console.log('[STARTUP] Environment OK — MONGODB_URI, JWT_SECRET, GEMINI_API_KEY loaded');
 
 // ── Database ──────────────────────────────────────────────────
+// connectDB is called here so the connection is attempted on cold start.
+// The cached-connection pattern in database.js reuses it on warm starts.
 const connectDB = require('./config/database');
-connectDB();
+connectDB().catch(err => console.error('[DB] Initial connection failed:', err.message));
 
 // ── Route imports ─────────────────────────────────────────────
 // Legacy routes (v0 — kept for backward compatibility)
@@ -83,15 +86,16 @@ app.use((err, req, res, next) => {
     res.status(status).json({ error: message });
 });
 
-// ── Create HTTP Server + Socket.io ────────────────────────────
-const http = require('http');
-const { initSocket } = require('./config/socket');
-const server = http.createServer(app);
-initSocket(server);
-
-// ── Start server ──────────────────────────────────────────────
+// ── Local dev only: HTTP Server + Socket.io ──────────────────
+// Vercel is serverless — it cannot run a persistent HTTP server or WebSockets.
+// Socket.io is only initialized when running locally via `npm run dev`.
 if (require.main === module) {
+    const http = require('http');
+    const { initSocket } = require('./config/socket');
+    const server = http.createServer(app);
+    initSocket(server);
     server.listen(PORT, () => console.log(`[STARTUP] Server running on port ${PORT}`));
 }
 
-module.exports = server;
+// ── Export the Express app (Vercel serverless requires this) ──
+module.exports = app;
