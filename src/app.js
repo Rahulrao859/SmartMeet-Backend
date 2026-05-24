@@ -69,6 +69,16 @@ app.use(cors({
 }));
 
 
+// ── Ensure DB Connection is ready ──────────────────────────────
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
+
 // ── Core middleware ───────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));

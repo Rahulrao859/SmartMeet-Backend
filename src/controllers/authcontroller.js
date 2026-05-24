@@ -134,6 +134,7 @@ class AuthController {
             if (!user || !(await user.comparePassword(password))) {
                 // Single message — don't reveal whether email exists
                 return next(new AppError('Invalid email or password', 401));
+                
             }
 
             // Generate tokens
