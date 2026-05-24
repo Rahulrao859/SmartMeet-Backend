@@ -11,3 +11,4 @@
 {"environment":"development","level":"info","message":"User logged in","service":"smartmeet-backend","timestamp":"2026-05-23T19:02:39.516Z","userId":"6a11ec96e0ebc37cf54fa7a2"}
 {"environment":"development","level":"info","message":"[SOCKET] Client disconnected: 6ymIKXSiOWoKCpt-AAAJ (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:03:15.689Z"}
 {"environment":"development","level":"info","message":"[SOCKET] Client disconnected: T3sftg1QGKwWpWIXAAAH (User: 69f70d4817bcadd7f6fc460b)","service":"smartmeet-backend","timestamp":"2026-05-23T19:03:17.981Z"}
+{"environment":"development","level":"info","message":"User logged in","service":"smartmeet-backend","timestamp":"2026-05-24T12:09:21.470Z","userId":"6a11ec96e0ebc37cf54fa7a2"}

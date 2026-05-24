@@ -22,7 +22,6 @@
         "jsonwebtoken": "^9.0.3",
         "mongoose": "^9.1.5",
         "nodemailer": "^6.9.7",
-        "socket.io": "^4.8.3",
         "twilio": "^6.0.0",
         "winston": "^3.19.0",
         "xss": "^1.0.15"

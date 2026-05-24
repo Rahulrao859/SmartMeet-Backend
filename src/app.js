@@ -44,10 +44,14 @@ const app  = express();
 const PORT = process.env.PORT || 5000;
 
 // ── CORS ──────────────────────────────────────────────────────
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:5173').split(',').map(o => o.trim());
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '').split(',').map(o => o.trim()).filter(Boolean);
 app.use(cors({
     origin: (origin, cb) => {
-        if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+        // Allow requests with no origin (mobile apps, curl, Postman)
+        if (!origin) return cb(null, true);
+        // If no whitelist configured, allow all origins (safe for public API)
+        if (allowedOrigins.length === 0) return cb(null, true);
+        if (allowedOrigins.includes(origin)) return cb(null, true);
         const corsError = new Error(`CORS: origin ${origin} not allowed`);
         corsError.statusCode = 403;
         corsError.isOperational = true;
@@ -55,6 +59,7 @@ app.use(cors({
     },
     credentials: true,   // required for httpOnly cookie (refresh token)
 }));
+
 
 // ── Core middleware ───────────────────────────────────────────
 app.use(express.json({ limit: '10kb' }));
@@ -72,8 +77,10 @@ app.use('/api/auth',  v1AuthRoutes);       // /api/auth/* (same prefix, new hand
 app.use('/api/v1',    v1MeetingRoutes);    // /api/v1/meetings, /api/v1/schedule, etc.
 app.use('/api/v1',    v1ActivityRoutes);   // /api/v1/activity
 
-// ── Health check ──────────────────────────────────────────────
+// ── Root & Health check ───────────────────────────────────────
+app.get('/', (req, res) => res.json({ status: 'SmartMeet API is running', version: 'v1', env: process.env.NODE_ENV }));
 app.get('/health', (req, res) => res.json({ status: 'SmartMeet Backend is running', version: 'v1' }));
+
 
 // ── 404 handler ───────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: `Route ${req.method} ${req.path} not found` }));
@@ -86,16 +93,14 @@ app.use((err, req, res, next) => {
     res.status(status).json({ error: message });
 });
 
-// ── Local dev only: HTTP Server + Socket.io ──────────────────
+// ── Local dev only: HTTP Server ──────────────────────────────
 // Vercel is serverless — it cannot run a persistent HTTP server or WebSockets.
-// Socket.io is only initialized when running locally via `npm run dev`.
 if (require.main === module) {
     const http = require('http');
-    const { initSocket } = require('./config/socket');
     const server = http.createServer(app);
-    initSocket(server);
     server.listen(PORT, () => console.log(`[STARTUP] Server running on port ${PORT}`));
 }
+
 
 // ── Export the Express app (Vercel serverless requires this) ──
 module.exports = app;

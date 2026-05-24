@@ -1,18 +1,27 @@
 {
     "version": 2,
-    "builds": [
-        {
-            "src": "src/app.js",
-            "use": "@vercel/node"
+    "functions": {
+        "src/app.js": {
+            "maxDuration": 30
         }
-    ],
-    "routes": [
+    },
+    "rewrites": [
         {
-            "src": "/(.*)",
-            "dest": "src/app.js"
+            "source": "/(.*)",
+            "destination": "/src/app.js"
         }
     ],
     "env": {
         "NODE_ENV": "production"
-    }
+    },
+    "headers": [
+        {
+            "source": "/(.*)",
+            "headers": [
+                { "key": "Access-Control-Allow-Credentials", "value": "true" },
+                { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+                { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,Cookie" }
+            ]
+        }
+    ]
 }
