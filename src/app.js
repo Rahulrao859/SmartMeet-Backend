@@ -49,9 +49,17 @@ app.use(cors({
     origin: (origin, cb) => {
         // Allow requests with no origin (mobile apps, curl, Postman)
         if (!origin) return cb(null, true);
-        // If no whitelist configured, allow all origins (safe for public API)
+        
+        // Auto-allow local development and Vercel preview domains
+        if (origin.startsWith('http://localhost:') || origin.endsWith('.vercel.app')) {
+            return cb(null, true);
+        }
+        
+        // If no whitelist configured, allow all origins
         if (allowedOrigins.length === 0) return cb(null, true);
         if (allowedOrigins.includes(origin)) return cb(null, true);
+        
+        console.warn(`[CORS REJECTED] Origin: ${origin}. Allowed Origins: ${allowedOrigins.join(', ')}`);
         const corsError = new Error(`CORS: origin ${origin} not allowed`);
         corsError.statusCode = 403;
         corsError.isOperational = true;
