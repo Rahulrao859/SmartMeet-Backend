@@ -101,7 +101,7 @@ class GeminiService {
             const currentDay = new Date().toLocaleDateString('en-US', { weekday: 'long' });
             const currentFullDateTime = new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' });
 
-            const prompt = `You are a meeting scheduling assistant. Extract meeting details from the following request and respond with ONLY valid JSON (no markdown, no explanations, no code blocks).
+            const prompt = `You are a MULTILINGUAL meeting scheduling assistant. You can understand meeting requests in ANY language including English, Hindi (हिंदी), Spanish (Español), French (Français), German (Deutsch), and more. Extract meeting details and ALWAYS respond with ONLY valid JSON in English (no markdown, no explanations, no code blocks).
 
 CURRENT DATE/TIME CONTEXT (for calculating relative dates/times):
 - Current Date: ${currentDate} (${currentDay})
@@ -111,41 +111,54 @@ CURRENT DATE/TIME CONTEXT (for calculating relative dates/times):
 
 CRITICAL: Handle relative dates and times by calculating from current date/time:
 Examples:
-- "in 2 hours" → Add 2 hours to current time (${currentTime})
-- "in 30 minutes" → Add 30 minutes to current time
-- "tomorrow" → ${currentDate} + 1 day
-- "day after tomorrow" → ${currentDate} + 2 days
-- "in 2 days" or "2 days from now" → ${currentDate} + 2 days
-- "next Monday/Tuesday/etc" → Calculate next occurrence from ${currentDate}
-- "next week" → ${currentDate} + 7 days
-- "this Friday" → Calculate from current week
+- "in 2 hours" / "2 ghante mein" / "en 2 horas" → Add 2 hours to current time (${currentTime})
+- "in 30 minutes" / "30 minute mein" → Add 30 minutes to current time
+- "tomorrow" / "kal" / "mañana" / "demain" → ${currentDate} + 1 day
+- "day after tomorrow" / "parson" / "pasado mañana" → ${currentDate} + 2 days
+- "next Monday" / "agle Monday" / "próximo lunes" → Calculate next occurrence
+- "next week" / "agle hafte" / "la semana que viene" → ${currentDate} + 7 days
+- "this Friday" / "is Friday" / "este viernes" → Calculate from current week
+- "subah" / "morning" → 10:00, "dopahar" / "afternoon" → 14:00, "shaam" / "evening" → 18:00
+
+MULTI-LANGUAGE SUPPORT:
+- Hindi: "kal subah 10 baje meeting schedule karo" → tomorrow at 10:00
+- Hindi: "agle hafte Monday ko team call" → next Monday team call
+- Spanish: "reunión mañana a las 3 de la tarde" → tomorrow at 15:00
+- French: "réunion demain à 14 heures" → tomorrow at 14:00
+- German: "Besprechung morgen um 10 Uhr" → tomorrow at 10:00
+- Mixed: "kal 3 PM pe Zoom call" → tomorrow at 15:00 on Zoom
 
 User Request: "${query}"
 
 Extract these fields:
-1. "title": A concise meeting title (if not specified, create one based on the context)
-2. "date": Format as YYYY-MM-DD. Calculate if relative (e.g., "tomorrow", "in 2 days")
-3. "time": Format as HH:MM in 24-hour format. Calculate if relative (e.g., "in 2 hours"). Convert AM/PM to 24-hour.
+1. "title": A concise meeting title IN ENGLISH (if not specified, create one based on the context)
+2. "date": Format as YYYY-MM-DD. Calculate if relative
+3. "time": Format as HH:MM in 24-hour format. Calculate if relative. Convert AM/PM to 24-hour.
 4. "duration": Format as "X minutes" or "X hour(s)" (default: "30 minutes" if not specified)
 5. "participants": Array of participant names mentioned (empty array [] if none)
-6. "platform": Detect from keywords:
-   - "zoom", "on zoom", "via zoom" → "Zoom"
-   - "google meet", "meet", "on meet" → "Google Meet"
+6. "platform": Detect from keywords in any language:
+   - "zoom", "on zoom", "via zoom", "Zoom pe" → "Zoom"
+   - "google meet", "meet", "on meet", "Meet pe" → "Google Meet"
    - "teams", "microsoft teams", "ms teams" → "Microsoft Teams"
    - If none mentioned → "Online"
 7. "platform_link": Leave empty string "", will be generated separately
+8. "detectedLanguage": The language the user typed in (e.g., "en", "hi", "es", "fr", "de", "mixed")
 
-Example 1:
+Example 1 (English):
 Input: "Team standup tomorrow at 10 AM on Zoom for 30 minutes"
-Output: {"title":"Team standup","date":"<tomorrow's date in YYYY-MM-DD>","time":"10:00","duration":"30 minutes","participants":[],"platform":"Zoom","platform_link":""}
+Output: {"title":"Team standup","date":"<tomorrow's date>","time":"10:00","duration":"30 minutes","participants":[],"platform":"Zoom","platform_link":"","detectedLanguage":"en"}
 
-Example 2:
-Input: "Client call in 2 hours on Google Meet"
-Output: {"title":"Client call","date":"${currentDate}","time":"<current time + 2 hours in HH:MM>","duration":"30 minutes","participants":[],"platform":"Google Meet","platform_link":""}
+Example 2 (Hindi):
+Input: "Kal subah 10 baje team meeting schedule karo Zoom pe"
+Output: {"title":"Team Meeting","date":"<tomorrow's date>","time":"10:00","duration":"30 minutes","participants":[],"platform":"Zoom","platform_link":"","detectedLanguage":"hi"}
 
-Example 3:
-Input: "Project review 2 days from now at 3 PM on Teams for 1 hour"
-Output: {"title":"Project review","date":"<current date + 2 days in YYYY-MM-DD>","time":"15:00","duration":"1 hour","participants":[],"platform":"Microsoft Teams","platform_link":""}
+Example 3 (Spanish):
+Input: "Reunión con el equipo mañana a las 3 de la tarde en Google Meet"
+Output: {"title":"Team Meeting","date":"<tomorrow's date>","time":"15:00","duration":"30 minutes","participants":[],"platform":"Google Meet","platform_link":"","detectedLanguage":"es"}
+
+Example 4 (French):
+Input: "Réunion d'équipe demain à 14 heures sur Teams pendant 1 heure"
+Output: {"title":"Team Meeting","date":"<tomorrow's date>","time":"14:00","duration":"1 hour","participants":[],"platform":"Microsoft Teams","platform_link":"","detectedLanguage":"fr"}
 
 Now extract from: "${query}"
 
@@ -204,6 +217,74 @@ Respond with valid JSON only:`;
 
             console.log(`✅ Fallback parsing result:`, meetingDetails);
             return meetingDetails;
+        }
+    }
+    // ══════════════════════════════════════════════════════════
+    // FEATURE 5 — Summarize Meeting Notes
+    // Takes raw meeting notes and returns structured summary
+    // ══════════════════════════════════════════════════════════
+    async summarizeMeetingNotes(rawNotes, meetingTitle) {
+        console.log(`📝 Summarizing notes for: "${meetingTitle}"`);
+
+        try {
+            const prompt = `You are a meeting notes summarizer. Analyze the following raw meeting notes and produce a structured summary. Respond with ONLY valid JSON (no markdown, no explanations, no code blocks).
+
+Meeting Title: "${meetingTitle}"
+
+Raw Notes:
+"""${rawNotes}"""
+
+Produce a JSON object with these fields:
+1. "summary": A clear, concise paragraph summarizing the key discussion points (2-5 sentences)
+2. "actionItems": An array of action items, each with:
+   - "text": What needs to be done
+   - "assignee": Who is responsible (extract from notes if mentioned, otherwise empty string)
+   - "dueDate": When it's due (extract if mentioned, otherwise empty string)
+3. "keyDecisions": An array of strings — important decisions that were made
+
+Example:
+{
+  "summary": "The team discussed Q3 roadmap priorities and agreed to focus on mobile optimization. Budget was approved for hiring two more frontend developers.",
+  "actionItems": [
+    { "text": "Create wireframes for mobile redesign", "assignee": "Sarah", "dueDate": "2026-06-15" },
+    { "text": "Draft job descriptions for frontend roles", "assignee": "HR Team", "dueDate": "" }
+  ],
+  "keyDecisions": [
+    "Mobile optimization is the top priority for Q3",
+    "Budget approved for 2 new frontend hires"
+  ]
+}
+
+If no action items or decisions are found, return empty arrays.
+Respond with valid JSON only:`;
+
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            let text = response.text().trim();
+
+            console.log(`🤖 Gemini summary response: ${text.substring(0, 200)}...`);
+
+            // Clean up markdown code blocks if present
+            text = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
+
+            const parsed = JSON.parse(text);
+
+            return {
+                summary:      parsed.summary      || 'No summary generated.',
+                actionItems:  Array.isArray(parsed.actionItems)  ? parsed.actionItems.map(item => ({
+                    text:     item.text     || '',
+                    assignee: item.assignee || '',
+                    dueDate:  item.dueDate  || '',
+                })) : [],
+                keyDecisions: Array.isArray(parsed.keyDecisions) ? parsed.keyDecisions : [],
+            };
+        } catch (error) {
+            console.error('❌ Error summarizing meeting notes:', error.message);
+            return {
+                summary:      'Could not generate AI summary. Please try again.',
+                actionItems:  [],
+                keyDecisions: [],
+            };
         }
     }
 }

@@ -35,9 +35,13 @@ const calendarRoutes = require('./routes/calendarRoutes');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 
 // v1 routes (Phase 2 + 3 — new canonical endpoints)
-const v1AuthRoutes     = require('./routes/v1/authRoutes');
-const v1MeetingRoutes  = require('./routes/v1/meetingRoutes');
-const v1ActivityRoutes = require('./routes/v1/activityRoutes');
+const v1AuthRoutes      = require('./routes/v1/authRoutes');
+const v1MeetingRoutes   = require('./routes/v1/meetingRoutes');
+const v1ActivityRoutes  = require('./routes/v1/activityRoutes');
+const v1AdminRoutes     = require('./routes/v1/adminRoutes');
+const v1TemplateRoutes  = require('./routes/v1/templateRoutes');
+const v1AnalyticsRoutes = require('./routes/v1/analyticsRoutes');
+const v1NotesRoutes     = require('./routes/v1/notesRoutes');
 
 // ── App setup ─────────────────────────────────────────────────
 const app  = express();
@@ -90,10 +94,14 @@ app.use('/api', apiRoutes);
 app.use('/api/calendar', calendarRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 
-// ── v1 routes (Phase 2 + 3 + 4) ───────────────────────────────
+// ── v1 routes (Phase 2 + 3 + 4 + Features) ────────────────────
 app.use('/api/auth',  v1AuthRoutes);       // /api/auth/* (same prefix, new handlers)
 app.use('/api/v1',    v1MeetingRoutes);    // /api/v1/meetings, /api/v1/schedule, etc.
 app.use('/api/v1',    v1ActivityRoutes);   // /api/v1/activity
+app.use('/api/v1',    v1AdminRoutes);      // /api/v1/admin/*, /api/v1/team/*
+app.use('/api/v1',    v1TemplateRoutes);   // /api/v1/templates
+app.use('/api/v1',    v1AnalyticsRoutes);  // /api/v1/analytics/*
+app.use('/api/v1',    v1NotesRoutes);      // /api/v1/meetings/:id/notes
 
 // ── Root & Health check ───────────────────────────────────────
 app.get('/', (req, res) => res.json({ status: 'SmartMeet API is running', version: 'v1', env: process.env.NODE_ENV }));

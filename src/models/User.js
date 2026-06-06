@@ -37,6 +37,19 @@ const userSchema = new mongoose.Schema({
         select:    false,   // never returned in queries unless explicitly .select('+password')
     },
 
+    // ── RBAC — User Role ─────────────────────────────────────
+    role: {
+        type:    String,
+        enum:    ['admin', 'manager', 'member'],
+        default: 'admin',
+    },
+
+    // ── Multi-language AI preference ─────────────────────────
+    preferredLanguage: {
+        type:    String,
+        default: 'en',      // ISO 639-1 code: en, hi, es, fr, de, etc.
+    },
+
     // ── 2.4 — Profile fields ─────────────────────────────────
     avatar: {
         type:    String,

@@ -25,6 +25,7 @@ const User          = require('../models/User');
 const RefreshToken  = require('../models/RefreshToken');
 const Meeting       = require('../models/Meeting');
 const EmailLog      = require('../models/EmailLog');
+const AuditLog      = require('../models/AuditLog');
 const authEmailService = require('../services/authEmailService');
 const logger        = require('../config/logger');
 const { AppError }  = require('../middlewares/errorHandler');
@@ -70,8 +71,10 @@ function formatUser(user) {
         id:         user._id,
         name:       user.name,
         email:      user.email,
+        role:       user.role || 'member',
         avatar:     user.avatar || '',
         timezone:   user.timezone || 'UTC',
+        preferredLanguage: user.preferredLanguage || 'en',
         isVerified: user.isVerified,
         notificationPrefs: user.notificationPrefs,
         createdAt:  user.createdAt,
@@ -109,6 +112,9 @@ class AuthController {
             const accessToken = generateAccessToken(user._id);
 
             logger.info('User registered', { userId: user._id, email });
+
+            // Audit log
+            AuditLog.create({ userId: user._id, action: 'user.signup', resource: 'user', resourceId: user._id, details: { email }, ipAddress: req.ip || '', userAgent: req.get('User-Agent') || '' }).catch(() => {});
 
             res.status(201).json({
                 message: 'Account created! Please check your email to verify your account.',
@@ -155,6 +161,9 @@ class AuthController {
             res.cookie('refreshToken', rawRefresh, COOKIE_OPTIONS);
 
             logger.info('User logged in', { userId: user._id });
+
+            // Audit log
+            AuditLog.create({ userId: user._id, action: 'user.login', resource: 'user', resourceId: user._id, ipAddress: req.ip || '', userAgent: req.get('User-Agent') || '' }).catch(() => {});
 
             res.json({
                 message: 'Login successful',
@@ -349,7 +358,7 @@ class AuthController {
         try {
             if (!checkValidation(req, res)) return;
 
-            const allowedFields = ['name', 'timezone', 'avatar', 'notificationPrefs'];
+            const allowedFields = ['name', 'timezone', 'avatar', 'notificationPrefs', 'preferredLanguage'];
             const updates = {};
             allowedFields.forEach(field => {
                 if (req.body[field] !== undefined) updates[field] = req.body[field];
